@@ -3,13 +3,20 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Krizový manažerský dashboard API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: accounts
+    description: Správa e-mailových účtů
+  - name: tasks
+    description: Správa úkolů (analyticky zpracované e-maily)
+  - name: sync
+    description: Synchronizace e-mailů
+
 paths:
   /healthz:
     get:
@@ -24,6 +31,152 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /accounts:
+    get:
+      operationId: listAccounts
+      tags: [accounts]
+      summary: Výpis e-mailových účtů
+      description: Vrátí seznam všech nakonfigurovaných e-mailových účtů
+      responses:
+        "200":
+          description: Seznam účtů
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmailAccount"
+
+    post:
+      operationId: createAccount
+      tags: [accounts]
+      summary: Přidání nového e-mailového účtu
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAccountBody"
+      responses:
+        "201":
+          description: Účet přidán
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailAccount"
+        "400":
+          description: Neplatné vstupní údaje
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /accounts/{id}:
+    delete:
+      operationId: deleteAccount
+      tags: [accounts]
+      summary: Odstranění e-mailového účtu
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Účet odstraněn
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "404":
+          description: Účet nenalezen
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tasks:
+    get:
+      operationId: listTasks
+      tags: [tasks]
+      summary: Výpis úkolů seřazených podle priority
+      responses:
+        "200":
+          description: Seznam úkolů
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Task"
+
+  /tasks/{id}:
+    delete:
+      operationId: deleteTask
+      tags: [tasks]
+      summary: Označení úkolu jako vyřízený (smazání)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Úkol odstraněn
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "404":
+          description: Úkol nenalezen
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sync:
+    post:
+      operationId: syncEmails
+      tags: [sync]
+      summary: Spuštění synchronizace e-mailů
+      description: Stáhne e-maily ze všech nakonfigurovaných účtů a analyzuje je pomocí AI
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SyncRequest"
+      responses:
+        "200":
+          description: Synchronizace dokončena
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncResult"
+        "500":
+          description: Chyba synchronizace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /stats:
+    get:
+      operationId: getStats
+      tags: [tasks]
+      summary: Statistiky dashboardu
+      description: Vrátí přehled počtu úkolů podle priority a kategorie
+      responses:
+        "200":
+          description: Statistiky
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +187,162 @@ components:
       required:
         - status
 
+    EmailAccount:
+      type: object
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+          description: Přátelský název účtu (např. "Práce")
+        email:
+          type: string
+        imapHost:
+          type: string
+        imapPort:
+          type: integer
+        createdAt:
+          type: string
+      required:
+        - id
+        - label
+        - email
+        - imapHost
+        - imapPort
+        - createdAt
+
+    CreateAccountBody:
+      type: object
+      properties:
+        label:
+          type: string
+          description: Přátelský název účtu
+        email:
+          type: string
+          description: E-mailová adresa
+        password:
+          type: string
+          description: Heslo k e-mailu
+        imapHost:
+          type: string
+          description: IMAP server (např. imap.gmail.com)
+        imapPort:
+          type: integer
+          description: IMAP port (výchozí 993)
+          default: 993
+      required:
+        - label
+        - email
+        - password
+        - imapHost
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+        accountId:
+          type: string
+        accountEmail:
+          type: string
+        subject:
+          type: string
+        from:
+          type: string
+        date:
+          type: string
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        category:
+          type: string
+          enum: [Finance, Klient, Dodavatel, Operativa]
+        summary:
+          type: string
+        draftReply:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - accountId
+        - accountEmail
+        - subject
+        - from
+        - date
+        - priority
+        - category
+        - summary
+        - draftReply
+        - createdAt
+
+    SyncRequest:
+      type: object
+      properties:
+        accountId:
+          type: string
+          description: ID konkrétního účtu (pokud není zadáno, synchronizují se všechny)
+
+    SyncResult:
+      type: object
+      properties:
+        synced:
+          type: integer
+          description: Počet nově zpracovaných e-mailů
+        accounts:
+          type: integer
+          description: Počet synchronizovaných účtů
+        errors:
+          type: array
+          items:
+            type: string
+      required:
+        - synced
+        - accounts
+        - errors
+
+    DashboardStats:
+      type: object
+      properties:
+        total:
+          type: integer
+        burning:
+          type: integer
+          description: Počet úkolů s prioritou 8+
+        byCategory:
+          type: object
+          additionalProperties:
+            type: integer
+        byPriority:
+          type: object
+          additionalProperties:
+            type: integer
+        accounts:
+          type: integer
+      required:
+        - total
+        - burning
+        - byCategory
+        - byPriority
+        - accounts
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required:
+        - error
