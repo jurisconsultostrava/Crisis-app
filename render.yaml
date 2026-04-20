@@ -2,7 +2,7 @@ services:
   - type: web
     name: crisis-dashboard
     runtime: static
-    buildCommand: npm install -g pnpm && pnpm install && pnpm --filter @workspace/crisis-dashboard build
+    buildCommand: npm install -g pnpm && pnpm install --ignore-scripts && pnpm --filter @workspace/crisis-dashboard build
     staticPublishPath: artifacts/crisis-dashboard/dist
     routes:
       - type: rewrite
@@ -12,7 +12,7 @@ services:
   - type: web
     name: api-server
     runtime: node
-    buildCommand: npm install -g pnpm && pnpm install && pnpm --filter @workspace/api-server build
+    buildCommand: npm install -g pnpm && pnpm install --ignore-scripts && pnpm --filter @workspace/api-server build
     startCommand: node --enable-source-maps artifacts/api-server/dist/index.mjs
     envVars:
       - key: NODE_ENV
